@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Claude
+.claude/
+
+# Test/output files
+*.mp4
+*.png
+*.jpg

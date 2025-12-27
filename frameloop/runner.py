@@ -24,6 +24,10 @@ def run_prediction(model_config: dict, inputs: dict, output_path: str | None = N
         inputs["last_frame"] = prepare_image_input(inputs["last_frame"])
     if "end_image" in inputs:
         inputs["end_image"] = prepare_image_input(inputs["end_image"])
+    if "first_frame_image" in inputs and inputs["first_frame_image"]:
+        inputs["first_frame_image"] = prepare_image_input(inputs["first_frame_image"])
+    if "subject_reference" in inputs and inputs["subject_reference"]:
+        inputs["subject_reference"] = prepare_image_input(inputs["subject_reference"])
     if "image_input" in inputs and inputs["image_input"]:
         inputs["image_input"] = [prepare_image_input(img) for img in inputs["image_input"]]
     if "input_images" in inputs and inputs["input_images"]:

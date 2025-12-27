@@ -138,14 +138,15 @@ def convert(
 
 @app.command()
 def video(
-    image: str = typer.Argument(..., help="Path to input image or URL"),
+    image: str = typer.Argument(None, help="Path to input image or URL"),
     prompt: str = typer.Option(..., "-p", "--prompt", help="Text prompt for video generation"),
-    model: str = typer.Option("wan", "-m", "--model", help="Model: wan, seedance, or veo"),
+    model: str = typer.Option("wan", "-m", "--model", help="Model: wan, seedance, veo, minimax-live, hailuo"),
     end_frame: str | None = typer.Option(None, "-e", "--end", help="End frame for interpolation (veo only)"),
     duration: int = typer.Option(5, "-d", "--duration", help="Video length in seconds"),
     resolution: str = typer.Option("1080p", "-r", "--resolution", help="Output resolution"),
     aspect_ratio: str = typer.Option("16:9", "-a", "--aspect-ratio", help="Aspect ratio: 16:9, 9:16"),
     fast_mode: str = typer.Option("Fast", "-f", "--fast-mode", help="Speed: Off, Balanced, Fast (wan only)"),
+    optimize_prompt: bool = typer.Option(True, "--optimize/--no-optimize", help="Enable AI prompt optimization"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
     seed: int | None = typer.Option(None, "-s", "--seed", help="Random seed"),
@@ -158,8 +159,15 @@ def video(
         console.print(f"[red]Error:[/] Unknown video model: {model}")
         raise typer.Exit(1)
 
-    inputs = {"prompt": prompt}
     params = model_config["params"]
+
+    # Check if image is required
+    requires_image = any(params.get(p, {}).get("required") for p in ["image", "start_image", "first_frame_image"])
+    if requires_image and not image:
+        console.print(f"[red]Error:[/] {model} requires an input image")
+        raise typer.Exit(1)
+
+    inputs = {"prompt": prompt}
 
     if "aspect_ratio" in params:
         inputs["aspect_ratio"] = aspect_ratio
@@ -167,6 +175,8 @@ def video(
         inputs["image"] = image
     if "start_image" in params:
         inputs["start_image"] = image
+    if "first_frame_image" in params and image:
+        inputs["first_frame_image"] = image
     if "last_frame" in params and end_frame:
         inputs["last_frame"] = end_frame
     if "end_image" in params and end_frame:
@@ -175,6 +185,10 @@ def video(
         # Veo only accepts 4, 6, 8 - map default 5 to closest valid
         if model == "veo" and duration == 5:
             duration = 6
+        # Hailuo: 1080p only supports 6s
+        if model == "hailuo" and resolution == "1080p" and duration != 6:
+            console.print("[yellow]Warning:[/] 1080p only supports 6s duration, adjusting")
+            duration = 6
         inputs["duration"] = duration
     if "resolution" in params:
         inputs["resolution"] = resolution
@@ -182,6 +196,8 @@ def video(
         inputs["mode"] = "pro" if resolution == "1080p" else "standard"
     if "fast_mode" in params:
         inputs["fast_mode"] = fast_mode
+    if "prompt_optimizer" in params:
+        inputs["prompt_optimizer"] = optimize_prompt
     if seed is not None and "seed" in params:
         inputs["seed"] = seed
 
@@ -192,15 +208,17 @@ def video(
 def image(
     prompt: str = typer.Argument(..., help="Text description of the image to generate"),
     images: list[str] | None = typer.Option(None, "-i", "--image", help="Input image(s) for transformation"),
-    model: str = typer.Option("seedream", "-m", "--model", help="Model: seedream, nano-banana, gpt-image"),
+    model: str = typer.Option("seedream", "-m", "--model", help="Model: seedream, nano-banana, gpt-image, minimax-image"),
     aspect_ratio: str = typer.Option("16:9", "-a", "--aspect-ratio", help="Output aspect ratio"),
     resolution: str = typer.Option("2K", "-r", "--resolution", help="Output resolution: 1K, 2K, 4K"),
     width: int | None = typer.Option(None, "-W", "--width", help="Custom width 1024-4096 (seedream only)"),
     height: int | None = typer.Option(None, "-H", "--height", help="Custom height 1024-4096 (seedream only)"),
     output_format: str = typer.Option(None, "-f", "--format", help="Output format: jpg, png, webp"),
-    enhance: bool = typer.Option(True, "--enhance/--no-enhance", help="Enable prompt enhancement (seedream)"),
+    enhance: bool = typer.Option(True, "--enhance/--no-enhance", help="Enable prompt enhancement"),
     quality: str = typer.Option("auto", "-q", "--quality", help="Quality: low, medium, high, auto (gpt-image)"),
     background: str = typer.Option("auto", "-b", "--background", help="Background: auto, transparent, opaque (gpt-image)"),
+    num_images: int = typer.Option(1, "-n", "--num-images", help="Number of images to generate"),
+    face_ref: str | None = typer.Option(None, "--face-ref", help="Face reference image (minimax-image)"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
 ):
@@ -244,9 +262,11 @@ def image(
         else:
             inputs["output_format"] = params["output_format"]["default"]
 
-    # Handle prompt enhancement (seedream only)
+    # Handle prompt enhancement/optimization
     if "enhance_prompt" in params:
         inputs["enhance_prompt"] = enhance
+    if "prompt_optimizer" in params:
+        inputs["prompt_optimizer"] = enhance
 
     # Handle quality (gpt-image)
     if "quality" in params:
@@ -255,6 +275,16 @@ def image(
     # Handle background (gpt-image)
     if "background" in params:
         inputs["background"] = background
+
+    # Handle number of images
+    if "number_of_images" in params:
+        inputs["number_of_images"] = num_images
+    if "max_images" in params and num_images > 1:
+        inputs["max_images"] = num_images
+
+    # Handle face reference (minimax-image)
+    if face_ref and "subject_reference" in params:
+        inputs["subject_reference"] = face_ref
 
     # Handle input images (nano-banana uses image_input, gpt-image uses input_images)
     if images:

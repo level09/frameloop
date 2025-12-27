@@ -111,6 +111,42 @@ MODELS = {
         },
         "cost": {"low": 0.01, "medium": 0.02, "high": 0.04, "auto": 0.02},  # $ per image
     },
+    "minimax-live": {
+        "id": "minimax/video-01-live",
+        "type": "video",
+        "description": "Minimax Live2D - image-to-video with smooth animation",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text prompt for video generation"},
+            "first_frame_image": {"required": True, "type": "file", "help": "Input image (first frame)"},
+            "prompt_optimizer": {"default": True, "type": "bool", "help": "Use AI prompt optimization"},
+        },
+    },
+    "minimax-image": {
+        "id": "minimax/image-01",
+        "type": "image",
+        "description": "Minimax Image-01 - high-fidelity image generation (~$0.01/image)",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text description of the image to generate"},
+            "aspect_ratio": {"default": "1:1", "choices": ["1:1", "16:9", "4:3", "3:2", "2:3", "3:4", "9:16", "21:9"], "help": "Output aspect ratio"},
+            "number_of_images": {"default": 1, "range": [1, 9], "help": "Number of images to generate"},
+            "prompt_optimizer": {"default": True, "type": "bool", "help": "Use AI prompt optimization"},
+            "subject_reference": {"required": False, "type": "file", "help": "Face reference image for subject"},
+        },
+        "cost": {"flat": 0.01},  # $ per image
+    },
+    "hailuo": {
+        "id": "minimax/hailuo-2.3",
+        "type": "video",
+        "description": "Minimax Hailuo 2.3 - cinematic video generation",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text prompt for video generation"},
+            "first_frame_image": {"required": False, "type": "file", "help": "Input image (optional first frame)"},
+            "duration": {"default": 6, "choices": [6, 10], "help": "Video length (10s only at 768p)"},
+            "resolution": {"default": "768p", "choices": ["768p", "1080p"], "help": "Output resolution (1080p only 6s)"},
+            "prompt_optimizer": {"default": True, "type": "bool", "help": "Use AI prompt optimization"},
+        },
+        "cost": {"768p_6s": 0.28, "768p_10s": 0.56, "1080p_6s": 0.49},  # $ per video
+    },
 }
 
 

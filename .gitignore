@@ -17,8 +17,14 @@ venv/
 # OS
 .DS_Store
 
-# Claude
+# Environment
+.env
+.env.*
+
+# Claude / AI
 .claude/
+AGENTS.md
+CLAUDE.md
 
 # Test/output files
 *.mp4

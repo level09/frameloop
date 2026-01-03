@@ -2,7 +2,8 @@
 
 A CLI tool for generating videos and images using AI models from Replicate.
 
-![frameloop](https://github.com/user-attachments/assets/986356c1-ce5f-4101-84ef-45509d030181)
+
+![output_video_20260103_162211](https://github.com/user-attachments/assets/f9075b86-eae9-48e5-adc1-67a8f65a9c33)
 
 
 ```bash

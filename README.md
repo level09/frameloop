@@ -2,6 +2,9 @@
 
 A CLI tool for generating videos and images using AI models from Replicate.
 
+![frameloop](https://github.com/user-attachments/assets/986356c1-ce5f-4101-84ef-45509d030181)
+
+
 ```bash
 # Generate a video from an image
 frameloop video photo.jpg -p "camera slowly zooms in"

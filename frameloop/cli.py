@@ -151,12 +151,11 @@ def video(
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
     seed: int | None = typer.Option(None, "-s", "--seed", help="Random seed"),
-    interactive: bool = typer.Option(False, "-I", "--interactive", help="Interactive mode - prompt for options"),
 ):
     """Generate video from an image."""
     _check_token()
 
-    # Interactive model selection if not provided
+    # Auto-prompt for model if not provided
     if not model:
         model = select_model("video")
         if not model:
@@ -169,7 +168,7 @@ def video(
 
     params = model_config["params"]
 
-    # Interactive prompt if not provided
+    # Auto-prompt for prompt if not provided
     if not prompt:
         import questionary
         prompt = questionary.text("Prompt (describe the video):").ask()
@@ -177,7 +176,7 @@ def video(
             console.print("[red]Error:[/] Prompt is required")
             raise typer.Exit(1)
 
-    # Check if image is required
+    # Auto-prompt for image if required and not provided
     requires_image = any(params.get(p, {}).get("required") for p in ["image", "start_image", "first_frame_image"])
     if requires_image and not image:
         import questionary
@@ -186,21 +185,19 @@ def video(
             console.print(f"[red]Error:[/] {model} requires an input image")
             raise typer.Exit(1)
 
-    # Interactive mode - prompt for options with choices
-    if interactive:
-        for param_name, param_config in params.items():
-            if param_name in ["prompt", "image", "start_image", "first_frame_image"]:
-                continue
-            if param_config.get("choices"):
-                value = prompt_param(param_name, param_config)
-                if param_name == "duration":
-                    duration = value
-                elif param_name == "resolution":
-                    resolution = value
-                elif param_name == "aspect_ratio":
-                    aspect_ratio = value
-                elif param_name == "fast_mode":
-                    fast_mode = value
+    # Auto-prompt for params with choices when not provided via CLI
+    for param_name, param_config in params.items():
+        if param_name in ["prompt", "image", "start_image", "first_frame_image"]:
+            continue
+        if param_config.get("choices"):
+            if param_name == "duration" and not duration:
+                duration = prompt_param(param_name, param_config)
+            elif param_name == "resolution" and not resolution:
+                resolution = prompt_param(param_name, param_config)
+            elif param_name == "aspect_ratio" and not aspect_ratio:
+                aspect_ratio = prompt_param(param_name, param_config)
+            elif param_name == "fast_mode" and not fast_mode:
+                fast_mode = prompt_param(param_name, param_config)
 
     inputs = {"prompt": prompt}
 
@@ -263,12 +260,11 @@ def image(
     style: str = typer.Option(None, "-s", "--style", help="Visual style (recraft models)"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
-    interactive: bool = typer.Option(False, "-I", "--interactive", help="Interactive mode - prompt for all options"),
 ):
     """Generate or transform images."""
     _check_token()
 
-    # Interactive model selection if not provided
+    # Auto-prompt for model if not provided
     if not model:
         model = select_model("image")
         if not model:
@@ -281,7 +277,7 @@ def image(
 
     params = model_config["params"]
 
-    # Interactive prompt if not provided
+    # Auto-prompt for prompt if not provided
     if not prompt:
         import questionary
         prompt = questionary.text("Prompt (describe the image):").ask()
@@ -289,19 +285,18 @@ def image(
             console.print("[red]Error:[/] Prompt is required")
             raise typer.Exit(1)
 
-    # Interactive mode - prompt for options with choices
-    if interactive:
-        for param_name, param_config in params.items():
-            if param_name == "prompt":
-                continue
-            if param_config.get("choices"):
-                value = prompt_param(param_name, param_config)
-                if param_name == "style":
-                    style = value
-                elif param_name == "aspect_ratio":
-                    aspect_ratio = value
-                elif param_name == "size":
-                    resolution = value
+    # Auto-prompt for params with choices when not provided via CLI
+    for param_name, param_config in params.items():
+        if param_name == "prompt":
+            continue
+        if param_config.get("choices"):
+            # Check if user provided this param via CLI
+            if param_name == "style" and not style:
+                style = prompt_param(param_name, param_config)
+            elif param_name == "aspect_ratio" and not aspect_ratio:
+                aspect_ratio = prompt_param(param_name, param_config)
+            elif param_name == "size" and not resolution:
+                resolution = prompt_param(param_name, param_config)
 
     inputs = {"prompt": prompt}
 

@@ -147,6 +147,25 @@ MODELS = {
         },
         "cost": {"768p_6s": 0.28, "768p_10s": 0.56, "1080p_6s": 0.49},  # $ per video
     },
+    "recraft-svg": {
+        "id": "recraft-ai/recraft-v3-svg",
+        "type": "image",
+        "description": "Recraft V3 SVG - vector graphics generation from text prompts",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text prompt for SVG generation"},
+            "style": {"default": "any", "choices": ["any", "engraving", "line_art", "line_circuit", "linocut"], "help": "Visual style of the SVG"},
+        },
+    },
+    "recraft-20b": {
+        "id": "recraft-ai/recraft-20b-svg",
+        "type": "image",
+        "description": "Recraft 20B SVG - advanced vector graphics with icons & illustrations (~$0.044/image)",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text prompt for SVG generation"},
+            "style": {"default": "vector_illustration", "choices": ["vector_illustration", "vector_illustration/cartoon", "vector_illustration/doodle_line_art", "vector_illustration/engraving", "vector_illustration/flat_2", "vector_illustration/kawaii", "vector_illustration/line_art", "vector_illustration/line_circuit", "vector_illustration/linocut", "vector_illustration/seamless", "icon", "icon/broken_line", "icon/colored_outline", "icon/colored_shapes", "icon/colored_shapes_gradient", "icon/doodle_fill", "icon/doodle_offset_fill", "icon/offset_fill", "icon/outline", "icon/outline_gradient", "icon/uneven_fill"], "help": "Visual style (vector_illustration or icon variants)"},
+        },
+        "cost": {"flat": 0.044},
+    },
 }
 
 

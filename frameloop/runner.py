@@ -70,7 +70,17 @@ def run_prediction(model_config: dict, inputs: dict, output_path: str | None = N
 
     # Save output
     if not output_path:
-        ext = inputs.get("output_format") or {"video": "mp4", "upscale": "png", "image": "jpg"}.get(model_config["type"], "png")
+        # Detect extension from URL if possible, otherwise use defaults
+        ext = None
+        if output_url:
+            url_path = output_url.split("?")[0]
+            if url_path.endswith(".svg"):
+                ext = "svg"
+            elif url_path.endswith(".png"):
+                ext = "png"
+            elif url_path.endswith(".webp"):
+                ext = "webp"
+        ext = ext or inputs.get("output_format") or {"video": "mp4", "upscale": "png", "image": "jpg"}.get(model_config["type"], "png")
         input_ref = inputs.get("image") or (inputs.get("image_input") or [None])[0] or (inputs.get("input_images") or [None])[0] or "output"
         output_path = generate_output_filename(input_ref if isinstance(input_ref, str) else "output", model_config["type"], ext)
 

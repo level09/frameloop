@@ -219,6 +219,7 @@ def image(
     background: str = typer.Option("auto", "-b", "--background", help="Background: auto, transparent, opaque (gpt-image)"),
     num_images: int = typer.Option(1, "-n", "--num-images", help="Number of images to generate"),
     face_ref: str | None = typer.Option(None, "--face-ref", help="Face reference image (minimax-image)"),
+    style: str = typer.Option("any", "-s", "--style", help="Visual style: any, engraving, line_art, line_circuit, linocut (recraft-svg)"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
 ):
@@ -285,6 +286,10 @@ def image(
     # Handle face reference (minimax-image)
     if face_ref and "subject_reference" in params:
         inputs["subject_reference"] = face_ref
+
+    # Handle style (recraft-svg)
+    if "style" in params:
+        inputs["style"] = style
 
     # Handle input images (nano-banana uses image_input, gpt-image uses input_images)
     if images:

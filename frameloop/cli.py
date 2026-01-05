@@ -373,9 +373,9 @@ def image(
 
 @app.command()
 def upscale(
-    image: str = typer.Argument(..., help="Path to input image or URL"),
+    image: str = typer.Argument(None, help="Path to input image or URL"),
     model: str = typer.Option("esrgan", "-m", "--model", help="Model to use"),
-    scale: int = typer.Option(4, "-s", "--scale", help="Upscale factor: 2 or 4"),
+    scale: int = typer.Option(None, "-s", "--scale", help="Upscale factor: 2 or 4"),
     face_enhance: bool = typer.Option(False, "-f", "--face-enhance", help="Enhance faces"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
@@ -388,13 +388,27 @@ def upscale(
         console.print(f"[red]Error:[/] Unknown upscale model: {model}")
         raise typer.Exit(1)
 
+    params = model_config["params"]
+
+    # Auto-prompt for image if not provided
+    if not image:
+        import questionary
+        image = questionary.path("Input image:").ask()
+        if not image:
+            console.print("[red]Error:[/] Image is required")
+            raise typer.Exit(1)
+
+    # Auto-prompt for scale if not provided
+    if scale is None:
+        scale = prompt_param("scale", params["scale"])
+
     inputs = {"image": image, "scale": scale, "face_enhance": face_enhance}
     _run(model_config, inputs, output, no_wait)
 
 
 @app.command("remove-bg")
 def remove_bg(
-    image: str = typer.Argument(..., help="Path to input image or URL"),
+    image: str = typer.Argument(None, help="Path to input image or URL"),
     model: str = typer.Option("recraft-bg", "-m", "--model", help="Model: recraft-bg"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
@@ -406,6 +420,14 @@ def remove_bg(
     if not model_config or model_config["type"] != "transform":
         console.print(f"[red]Error:[/] Unknown transform model: {model}")
         raise typer.Exit(1)
+
+    # Auto-prompt for image if not provided
+    if not image:
+        import questionary
+        image = questionary.path("Input image:").ask()
+        if not image:
+            console.print("[red]Error:[/] Image is required")
+            raise typer.Exit(1)
 
     inputs = {"image": image}
     _run(model_config, inputs, output, no_wait)

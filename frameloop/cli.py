@@ -322,6 +322,25 @@ def upscale(
     _run(model_config, inputs, output, no_wait)
 
 
+@app.command("remove-bg")
+def remove_bg(
+    image: str = typer.Argument(..., help="Path to input image or URL"),
+    model: str = typer.Option("recraft-bg", "-m", "--model", help="Model: recraft-bg"),
+    output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
+    no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
+):
+    """Remove background from an image."""
+    _check_token()
+
+    model_config = get_model(model)
+    if not model_config or model_config["type"] != "transform":
+        console.print(f"[red]Error:[/] Unknown transform model: {model}")
+        raise typer.Exit(1)
+
+    inputs = {"image": image}
+    _run(model_config, inputs, output, no_wait)
+
+
 @app.command()
 def models():
     """List available models."""

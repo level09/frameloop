@@ -166,6 +166,15 @@ MODELS = {
         },
         "cost": {"flat": 0.044},
     },
+    "recraft-bg": {
+        "id": "recraft-ai/recraft-remove-background",
+        "type": "transform",
+        "description": "Recraft Remove Background - precise background removal (~$0.01/image)",
+        "params": {
+            "image": {"required": True, "type": "file", "help": "Image to remove background from (PNG, JPG, WEBP)"},
+        },
+        "cost": {"flat": 0.01},
+    },
 }
 
 

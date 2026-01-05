@@ -10,6 +10,7 @@ from rich.table import Table
 from .models import get_model, get_models_by_type, list_models
 from .runner import run_prediction, get_prediction_status
 from .utils import generate_output_filename
+from .prompts import select_model, prompt_param, interactive_config
 
 app = typer.Typer(name="frameloop", help="CLI tool for running Replicate AI models", no_args_is_help=True)
 console = Console()
@@ -139,20 +140,27 @@ def convert(
 @app.command()
 def video(
     image: str = typer.Argument(None, help="Path to input image or URL"),
-    prompt: str = typer.Option(..., "-p", "--prompt", help="Text prompt for video generation"),
-    model: str = typer.Option("wan", "-m", "--model", help="Model: wan, seedance, veo, minimax-live, hailuo"),
+    prompt: str = typer.Option(None, "-p", "--prompt", help="Text prompt for video generation"),
+    model: str = typer.Option(None, "-m", "--model", help="Model: wan, seedance, veo, kling, minimax-live, hailuo"),
     end_frame: str | None = typer.Option(None, "-e", "--end", help="End frame for interpolation (veo only)"),
-    duration: int = typer.Option(5, "-d", "--duration", help="Video length in seconds"),
-    resolution: str = typer.Option("1080p", "-r", "--resolution", help="Output resolution"),
-    aspect_ratio: str = typer.Option("16:9", "-a", "--aspect-ratio", help="Aspect ratio: 16:9, 9:16"),
-    fast_mode: str = typer.Option("Fast", "-f", "--fast-mode", help="Speed: Off, Balanced, Fast (wan only)"),
+    duration: int = typer.Option(None, "-d", "--duration", help="Video length in seconds"),
+    resolution: str = typer.Option(None, "-r", "--resolution", help="Output resolution"),
+    aspect_ratio: str = typer.Option(None, "-a", "--aspect-ratio", help="Aspect ratio: 16:9, 9:16"),
+    fast_mode: str = typer.Option(None, "-f", "--fast-mode", help="Speed: Off, Balanced, Fast (wan only)"),
     optimize_prompt: bool = typer.Option(True, "--optimize/--no-optimize", help="Enable AI prompt optimization"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
     seed: int | None = typer.Option(None, "-s", "--seed", help="Random seed"),
+    interactive: bool = typer.Option(False, "-I", "--interactive", help="Interactive mode - prompt for options"),
 ):
     """Generate video from an image."""
     _check_token()
+
+    # Interactive model selection if not provided
+    if not model:
+        model = select_model("video")
+        if not model:
+            raise typer.Exit(1)
 
     model_config = get_model(model)
     if not model_config or model_config["type"] != "video":
@@ -161,16 +169,44 @@ def video(
 
     params = model_config["params"]
 
+    # Interactive prompt if not provided
+    if not prompt:
+        import questionary
+        prompt = questionary.text("Prompt (describe the video):").ask()
+        if not prompt:
+            console.print("[red]Error:[/] Prompt is required")
+            raise typer.Exit(1)
+
     # Check if image is required
     requires_image = any(params.get(p, {}).get("required") for p in ["image", "start_image", "first_frame_image"])
     if requires_image and not image:
-        console.print(f"[red]Error:[/] {model} requires an input image")
-        raise typer.Exit(1)
+        import questionary
+        image = questionary.path("Input image (required):").ask()
+        if not image:
+            console.print(f"[red]Error:[/] {model} requires an input image")
+            raise typer.Exit(1)
+
+    # Interactive mode - prompt for options with choices
+    if interactive:
+        for param_name, param_config in params.items():
+            if param_name in ["prompt", "image", "start_image", "first_frame_image"]:
+                continue
+            if param_config.get("choices"):
+                value = prompt_param(param_name, param_config)
+                if param_name == "duration":
+                    duration = value
+                elif param_name == "resolution":
+                    resolution = value
+                elif param_name == "aspect_ratio":
+                    aspect_ratio = value
+                elif param_name == "fast_mode":
+                    fast_mode = value
 
     inputs = {"prompt": prompt}
 
     if "aspect_ratio" in params:
-        inputs["aspect_ratio"] = aspect_ratio
+        ar = aspect_ratio or params["aspect_ratio"].get("default", "16:9")
+        inputs["aspect_ratio"] = ar
     if "image" in params:
         inputs["image"] = image
     if "start_image" in params:
@@ -182,20 +218,25 @@ def video(
     if "end_image" in params and end_frame:
         inputs["end_image"] = end_frame
     if "duration" in params:
+        dur = duration or params["duration"].get("default", 5)
         # Veo only accepts 4, 6, 8 - map default 5 to closest valid
-        if model == "veo" and duration == 5:
-            duration = 6
+        if model == "veo" and dur == 5:
+            dur = 6
         # Hailuo: 1080p only supports 6s
-        if model == "hailuo" and resolution == "1080p" and duration != 6:
+        res = resolution or params.get("resolution", {}).get("default", "1080p")
+        if model == "hailuo" and res == "1080p" and dur != 6:
             console.print("[yellow]Warning:[/] 1080p only supports 6s duration, adjusting")
-            duration = 6
-        inputs["duration"] = duration
+            dur = 6
+        inputs["duration"] = dur
     if "resolution" in params:
-        inputs["resolution"] = resolution
+        res = resolution or params["resolution"].get("default", "1080p")
+        inputs["resolution"] = res
     if "mode" in params:
-        inputs["mode"] = "pro" if resolution == "1080p" else "standard"
+        res = resolution or params.get("resolution", {}).get("default", "1080p")
+        inputs["mode"] = "pro" if res == "1080p" else "standard"
     if "fast_mode" in params:
-        inputs["fast_mode"] = fast_mode
+        fm = fast_mode or params["fast_mode"].get("default", "Fast")
+        inputs["fast_mode"] = fm
     if "prompt_optimizer" in params:
         inputs["prompt_optimizer"] = optimize_prompt
     if seed is not None and "seed" in params:
@@ -206,11 +247,11 @@ def video(
 
 @app.command()
 def image(
-    prompt: str = typer.Argument(..., help="Text description of the image to generate"),
+    prompt: str = typer.Argument(None, help="Text description of the image to generate"),
     images: list[str] | None = typer.Option(None, "-i", "--image", help="Input image(s) for transformation"),
-    model: str = typer.Option("seedream", "-m", "--model", help="Model: seedream, nano-banana, gpt-image, minimax-image"),
-    aspect_ratio: str = typer.Option("16:9", "-a", "--aspect-ratio", help="Output aspect ratio"),
-    resolution: str = typer.Option("2K", "-r", "--resolution", help="Output resolution: 1K, 2K, 4K"),
+    model: str = typer.Option(None, "-m", "--model", help="Model: seedream, nano-banana, gpt-image, minimax-image, recraft-svg, recraft-20b"),
+    aspect_ratio: str = typer.Option(None, "-a", "--aspect-ratio", help="Output aspect ratio"),
+    resolution: str = typer.Option(None, "-r", "--resolution", help="Output resolution: 1K, 2K, 4K"),
     width: int | None = typer.Option(None, "-W", "--width", help="Custom width 1024-4096 (seedream only)"),
     height: int | None = typer.Option(None, "-H", "--height", help="Custom height 1024-4096 (seedream only)"),
     output_format: str = typer.Option(None, "-f", "--format", help="Output format: jpg, png, webp"),
@@ -219,12 +260,19 @@ def image(
     background: str = typer.Option("auto", "-b", "--background", help="Background: auto, transparent, opaque (gpt-image)"),
     num_images: int = typer.Option(1, "-n", "--num-images", help="Number of images to generate"),
     face_ref: str | None = typer.Option(None, "--face-ref", help="Face reference image (minimax-image)"),
-    style: str = typer.Option("any", "-s", "--style", help="Visual style: any, engraving, line_art, line_circuit, linocut (recraft-svg)"),
+    style: str = typer.Option(None, "-s", "--style", help="Visual style (recraft models)"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
+    interactive: bool = typer.Option(False, "-I", "--interactive", help="Interactive mode - prompt for all options"),
 ):
     """Generate or transform images."""
     _check_token()
+
+    # Interactive model selection if not provided
+    if not model:
+        model = select_model("image")
+        if not model:
+            raise typer.Exit(1)
 
     model_config = get_model(model)
     if not model_config or model_config["type"] != "image":
@@ -232,6 +280,29 @@ def image(
         raise typer.Exit(1)
 
     params = model_config["params"]
+
+    # Interactive prompt if not provided
+    if not prompt:
+        import questionary
+        prompt = questionary.text("Prompt (describe the image):").ask()
+        if not prompt:
+            console.print("[red]Error:[/] Prompt is required")
+            raise typer.Exit(1)
+
+    # Interactive mode - prompt for options with choices
+    if interactive:
+        for param_name, param_config in params.items():
+            if param_name == "prompt":
+                continue
+            if param_config.get("choices"):
+                value = prompt_param(param_name, param_config)
+                if param_name == "style":
+                    style = value
+                elif param_name == "aspect_ratio":
+                    aspect_ratio = value
+                elif param_name == "size":
+                    resolution = value
+
     inputs = {"prompt": prompt}
 
     # Handle custom dimensions (seedream only)
@@ -248,13 +319,16 @@ def image(
     else:
         # Handle aspect ratio (only when not using custom dimensions)
         if "aspect_ratio" in params:
-            inputs["aspect_ratio"] = aspect_ratio
+            ar = aspect_ratio or params["aspect_ratio"].get("default", "16:9")
+            inputs["aspect_ratio"] = ar
 
         # Handle resolution/size (seedream uses 'size', nano-banana uses 'resolution')
         if "size" in params:
-            inputs["size"] = resolution
+            res = resolution or params["size"].get("default", "2K")
+            inputs["size"] = res
         elif "resolution" in params:
-            inputs["resolution"] = resolution
+            res = resolution or params["resolution"].get("default", "2K")
+            inputs["resolution"] = res
 
     # Handle output format
     if "output_format" in params:
@@ -289,7 +363,8 @@ def image(
 
     # Handle style (recraft-svg)
     if "style" in params:
-        inputs["style"] = style
+        s = style or params["style"].get("default", "any")
+        inputs["style"] = s
 
     # Handle input images (nano-banana uses image_input, gpt-image uses input_images)
     if images:

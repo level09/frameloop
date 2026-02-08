@@ -66,10 +66,38 @@ MODELS = {
         },
         "cost": {"standard": 0.05, "pro": 0.09},  # $ per second
     },
-    "nano-banana": {
+    "kling-2.5-turbo": {
+        "id": "kwaivgi/kling-v2.5-turbo-pro",
+        "type": "video",
+        "description": "Kling v2.5 Turbo Pro - fast high-quality video (~$0.07/sec)",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text prompt for video generation"},
+            "start_image": {"required": False, "type": "file", "help": "Input image (first frame)"},
+            "end_image": {"required": False, "type": "file", "help": "End frame for interpolation"},
+            "duration": {"default": 5, "choices": [5, 10], "help": "Video length in seconds"},
+            "aspect_ratio": {"default": "16:9", "choices": ["16:9", "9:16", "1:1"], "help": "Video aspect ratio (ignored if start_image provided)"},
+            "negative_prompt": {"default": "", "type": "str", "help": "Things to exclude from video"},
+        },
+        "cost": {"per_second": 0.07},
+    },
+    "kling-2.6": {
+        "id": "kwaivgi/kling-v2.6",
+        "type": "video",
+        "description": "Kling v2.6 - cinematic video with native audio generation (~$0.07-0.14/sec)",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text prompt for video generation"},
+            "start_image": {"required": False, "type": "file", "help": "Input image (first frame)"},
+            "duration": {"default": 5, "choices": [5, 10], "help": "Video length in seconds"},
+            "aspect_ratio": {"default": "16:9", "choices": ["16:9", "9:16", "1:1"], "help": "Video aspect ratio"},
+            "generate_audio": {"default": True, "type": "bool", "help": "Generate synchronized audio (dialogue, effects, ambient)"},
+            "negative_prompt": {"default": "", "type": "str", "help": "Things to exclude from video"},
+        },
+        "cost": {"without_audio": 0.07, "with_audio": 0.14},  # $ per second
+    },
+    "nano-banana-pro": {
         "id": "google/nano-banana-pro",
         "type": "image",
-        "description": "Google's image generation & transformation model",
+        "description": "Google's Nano Banana Pro - image generation & transformation with reference images",
         "params": {
             "prompt": {"required": True, "type": "str", "help": "Text description of the image to generate"},
             "image_input": {"required": False, "type": "file_list", "help": "Input images for transformation (up to 14)"},
@@ -174,6 +202,33 @@ MODELS = {
             "image": {"required": True, "type": "file", "help": "Image to remove background from (PNG, JPG, WEBP)"},
         },
         "cost": {"flat": 0.01},
+    },
+    "sora": {
+        "id": "openai/sora-2",
+        "type": "video",
+        "description": "OpenAI Sora 2 - cinematic video with synchronized audio (~$0.10/sec)",
+        "params": {
+            "prompt": {"required": True, "type": "str", "help": "Text description of the video to generate"},
+            "input_reference": {"required": False, "type": "file", "help": "Input image (first frame, must match aspect ratio)"},
+            "seconds": {"default": 4, "choices": [4, 8, 12], "help": "Video length in seconds"},
+            "aspect_ratio": {"default": "portrait", "choices": ["portrait", "landscape"], "help": "Portrait (720x1280) or landscape (1280x720)"},
+            "openai_api_key": {"required": False, "type": "str", "env": "OPENAI_API_KEY", "help": "Optional: use own OpenAI key for direct billing"},
+        },
+        "cost": {"per_second": 0.10},
+    },
+    "hunyuan3d": {
+        "id": "tencent/hunyuan3d-2:b1b9449a1277e10402781c5d41eb30c0a0683504fb23fab591ca9dfc2aabe1cb",
+        "type": "3d",
+        "description": "Tencent Hunyuan3D-2 - image to 3D mesh generation (~$0.17/run)",
+        "params": {
+            "image": {"required": True, "type": "file", "help": "Input image for generating 3D shape"},
+            "steps": {"default": 50, "range": [20, 50], "help": "Number of inference steps"},
+            "guidance_scale": {"default": 5.5, "range": [1, 20], "type": "float", "help": "Guidance scale for generation"},
+            "octree_resolution": {"default": 256, "choices": [256, 384, 512], "help": "Octree resolution for mesh generation"},
+            "remove_background": {"default": True, "type": "bool", "help": "Remove background from input image"},
+            "seed": {"default": None, "type": "int", "help": "Random seed for reproducibility"},
+        },
+        "cost": {"flat": 0.17},
     },
 }
 

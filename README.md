@@ -72,7 +72,7 @@ frameloop image "a futuristic city at sunset" -a 16:9
 frameloop image "a sign that says HELLO" -m gpt-image
 
 # Transform existing images
-frameloop image "make it look like a painting" -i photo.jpg -m nano-banana
+frameloop image "make it look like a painting" -i photo.jpg -m nano-banana-pro
 
 # Generate multiple images
 frameloop image "abstract art" -n 4 -m seedream
@@ -84,7 +84,7 @@ frameloop image "abstract art" -n 4 -m seedream
 |-------|----------|------|
 | `seedream` | Fast, general purpose | ~$0.03/image |
 | `gpt-image` | Text rendering, editing | ~$0.02/image |
-| `nano-banana` | Image transformation | ~$0.15/image |
+| `nano-banana-pro` | Image transformation | ~$0.15/image |
 | `minimax-image` | Face reference support | ~$0.01/image |
 
 ### Upscaling

@@ -34,6 +34,7 @@ def select_model(model_type: str, current: str | None = None) -> str:
         choices=choices,
         default=default,
         style=style,
+        use_jk_keys=False,
     ).ask()
 
 
@@ -45,13 +46,21 @@ def prompt_param(name: str, param_config: dict, current_value=None) -> any:
     default = current_value or param_config.get("default")
 
     if choices:
-        # Selection menu for params with choices
-        return questionary.select(
+        # Selection menu for params with choices (convert to strings for questionary)
+        str_choices = [str(c) for c in choices]
+        str_default = str(default) if default is not None else str_choices[0]
+        result = questionary.select(
             f"{name} ({help_text}):",
-            choices=choices,
-            default=default if default in choices else choices[0],
+            choices=str_choices,
+            default=str_default if str_default in str_choices else str_choices[0],
             style=style,
         ).ask()
+        # Convert back to original type if needed
+        if result and param_type == "int":
+            return int(result)
+        if result and choices and isinstance(choices[0], int):
+            return int(result)
+        return result
 
     elif param_type == "bool":
         # Yes/No for booleans

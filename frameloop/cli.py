@@ -141,13 +141,15 @@ def convert(
 def video(
     image: str = typer.Argument(None, help="Path to input image or URL"),
     prompt: str = typer.Option(None, "-p", "--prompt", help="Text prompt for video generation"),
-    model: str = typer.Option(None, "-m", "--model", help="Model: wan, seedance, veo, kling, minimax-live, hailuo"),
-    end_frame: str | None = typer.Option(None, "-e", "--end", help="End frame for interpolation (veo only)"),
+    model: str = typer.Option(None, "-m", "--model", help="Model: wan, seedance, veo, kling, kling-2.5-turbo, kling-2.6, minimax-live, hailuo, sora"),
+    end_frame: str | None = typer.Option(None, "-e", "--end", help="End frame for interpolation"),
     duration: int = typer.Option(None, "-d", "--duration", help="Video length in seconds"),
     resolution: str = typer.Option(None, "-r", "--resolution", help="Output resolution"),
-    aspect_ratio: str = typer.Option(None, "-a", "--aspect-ratio", help="Aspect ratio: 16:9, 9:16"),
+    aspect_ratio: str = typer.Option(None, "-a", "--aspect-ratio", help="Aspect ratio: 16:9, 9:16, 1:1"),
     fast_mode: str = typer.Option(None, "-f", "--fast-mode", help="Speed: Off, Balanced, Fast (wan only)"),
     optimize_prompt: bool = typer.Option(True, "--optimize/--no-optimize", help="Enable AI prompt optimization"),
+    negative_prompt: str = typer.Option("", "-n", "--negative", help="Things to exclude from video"),
+    audio: bool = typer.Option(True, "--audio/--no-audio", help="Generate audio (kling-2.6 only)"),
     output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
     seed: int | None = typer.Option(None, "-s", "--seed", help="Random seed"),
@@ -177,7 +179,7 @@ def video(
             raise typer.Exit(1)
 
     # Auto-prompt for image if required and not provided
-    requires_image = any(params.get(p, {}).get("required") for p in ["image", "start_image", "first_frame_image"])
+    requires_image = any(params.get(p, {}).get("required") for p in ["image", "start_image", "first_frame_image", "input_reference"])
     if requires_image and not image:
         import questionary
         image = questionary.path("Input image (required):").ask()
@@ -185,12 +187,32 @@ def video(
             console.print(f"[red]Error:[/] {model} requires an input image")
             raise typer.Exit(1)
 
+    # Auto-prompt for optional start/input image if supported and not provided
+    if not image:
+        import questionary
+        # Check for any optional image input param
+        for img_param in ["image", "start_image", "first_frame_image", "input_reference"]:
+            if img_param in params and not params[img_param].get("required"):
+                if questionary.confirm("Add start image?", default=False).ask():
+                    image = questionary.path("Start image:").ask()
+                break
+
+    # Auto-prompt for optional end image if supported and not provided
+    if not end_frame:
+        import questionary
+        # Check for any optional end frame param
+        for end_param in ["end_image", "last_frame"]:
+            if end_param in params and not params[end_param].get("required"):
+                if questionary.confirm("Add end image?", default=False).ask():
+                    end_frame = questionary.path("End image:").ask()
+                break
+
     # Auto-prompt for params with choices when not provided via CLI
     for param_name, param_config in params.items():
-        if param_name in ["prompt", "image", "start_image", "first_frame_image"]:
+        if param_name in ["prompt", "image", "start_image", "first_frame_image", "input_reference"]:
             continue
         if param_config.get("choices"):
-            if param_name == "duration" and not duration:
+            if param_name in ["duration", "seconds"] and not duration:
                 duration = prompt_param(param_name, param_config)
             elif param_name == "resolution" and not resolution:
                 resolution = prompt_param(param_name, param_config)
@@ -204,12 +226,14 @@ def video(
     if "aspect_ratio" in params:
         ar = aspect_ratio or params["aspect_ratio"].get("default", "16:9")
         inputs["aspect_ratio"] = ar
-    if "image" in params:
+    if "image" in params and image:
         inputs["image"] = image
-    if "start_image" in params:
+    if "start_image" in params and image:
         inputs["start_image"] = image
     if "first_frame_image" in params and image:
         inputs["first_frame_image"] = image
+    if "input_reference" in params and image:
+        inputs["input_reference"] = image
     if "last_frame" in params and end_frame:
         inputs["last_frame"] = end_frame
     if "end_image" in params and end_frame:
@@ -225,6 +249,10 @@ def video(
             console.print("[yellow]Warning:[/] 1080p only supports 6s duration, adjusting")
             dur = 6
         inputs["duration"] = dur
+    if "seconds" in params:
+        # Sora uses "seconds" instead of "duration"
+        sec = duration or params["seconds"].get("default", 4)
+        inputs["seconds"] = sec
     if "resolution" in params:
         res = resolution or params["resolution"].get("default", "1080p")
         inputs["resolution"] = res
@@ -236,8 +264,19 @@ def video(
         inputs["fast_mode"] = fm
     if "prompt_optimizer" in params:
         inputs["prompt_optimizer"] = optimize_prompt
+    if "negative_prompt" in params and negative_prompt:
+        inputs["negative_prompt"] = negative_prompt
+    if "generate_audio" in params:
+        inputs["generate_audio"] = audio
     if seed is not None and "seed" in params:
         inputs["seed"] = seed
+
+    # Handle optional API keys from env vars
+    if "openai_api_key" in params:
+        import os
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if api_key:
+            inputs["openai_api_key"] = api_key
 
     _run(model_config, inputs, output, no_wait)
 
@@ -246,7 +285,7 @@ def video(
 def image(
     prompt: str = typer.Argument(None, help="Text description of the image to generate"),
     images: list[str] | None = typer.Option(None, "-i", "--image", help="Input image(s) for transformation"),
-    model: str = typer.Option(None, "-m", "--model", help="Model: seedream, nano-banana, gpt-image, minimax-image, recraft-svg, recraft-20b"),
+    model: str = typer.Option(None, "-m", "--model", help="Model: seedream, nano-banana-pro, gpt-image, minimax-image, recraft-svg, recraft-20b"),
     aspect_ratio: str = typer.Option(None, "-a", "--aspect-ratio", help="Output aspect ratio"),
     resolution: str = typer.Option(None, "-r", "--resolution", help="Output resolution: 1K, 2K, 4K"),
     width: int | None = typer.Option(None, "-W", "--width", help="Custom width 1024-4096 (seedream only)"),
@@ -276,6 +315,21 @@ def image(
         raise typer.Exit(1)
 
     params = model_config["params"]
+
+    # Auto-prompt for reference images first (so user knows what to reference in prompt)
+    if not images and ("image_input" in params or "input_images" in params):
+        import questionary
+        if questionary.confirm("Add reference image(s)?", default=False).ask():
+            images = []
+            while True:
+                img = questionary.path(f"Image {len(images) + 1} path:").ask()
+                if not img:
+                    break
+                images.append(img)
+                if not questionary.confirm("Add another image?", default=False).ask():
+                    break
+            if images:
+                console.print(f"[dim]{len(images)} image(s) added — reference as Image 1, Image 2, etc. in your prompt[/]")
 
     # Auto-prompt for prompt if not provided
     if not prompt:
@@ -361,7 +415,7 @@ def image(
         s = style or params["style"].get("default", "any")
         inputs["style"] = s
 
-    # Handle input images (nano-banana uses image_input, gpt-image uses input_images)
+    # Handle input images (nano-banana-pro uses image_input, gpt-image uses input_images)
     if images:
         if "image_input" in params:
             inputs["image_input"] = images
@@ -430,6 +484,51 @@ def remove_bg(
             raise typer.Exit(1)
 
     inputs = {"image": image}
+    _run(model_config, inputs, output, no_wait)
+
+
+@app.command()
+def mesh(
+    image: str = typer.Argument(None, help="Path to input image or URL"),
+    model: str = typer.Option("hunyuan3d", "-m", "--model", help="Model: hunyuan3d"),
+    steps: int = typer.Option(None, "-s", "--steps", help="Inference steps (20-50)"),
+    guidance_scale: float = typer.Option(None, "-g", "--guidance-scale", help="Guidance scale (1-20)"),
+    resolution: int = typer.Option(None, "-r", "--resolution", help="Octree resolution: 256, 384, 512"),
+    remove_background: bool = typer.Option(True, "--remove-bg/--no-remove-bg", help="Remove background from input"),
+    seed: int | None = typer.Option(None, "--seed", help="Random seed"),
+    output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
+    no_wait: bool = typer.Option(False, "--no-wait", help="Submit and exit without waiting"),
+):
+    """Generate 3D mesh from an image."""
+    _check_token()
+
+    model_config = get_model(model)
+    if not model_config or model_config["type"] != "3d":
+        console.print(f"[red]Error:[/] Unknown 3D model: {model}")
+        raise typer.Exit(1)
+
+    params = model_config["params"]
+
+    # Auto-prompt for image if not provided
+    if not image:
+        import questionary
+        image = questionary.path("Input image:").ask()
+        if not image:
+            console.print("[red]Error:[/] Image is required")
+            raise typer.Exit(1)
+
+    # Auto-prompt for resolution if not provided
+    if resolution is None:
+        resolution = prompt_param("octree_resolution", params["octree_resolution"])
+
+    inputs = {"image": image}
+    inputs["steps"] = steps or params["steps"]["default"]
+    inputs["guidance_scale"] = guidance_scale or params["guidance_scale"]["default"]
+    inputs["octree_resolution"] = resolution
+    inputs["remove_background"] = remove_background
+    if seed is not None:
+        inputs["seed"] = seed
+
     _run(model_config, inputs, output, no_wait)
 
 

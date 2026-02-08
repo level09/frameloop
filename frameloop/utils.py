@@ -15,9 +15,10 @@ def is_url(path: str) -> bool:
 
 def prepare_image_input(image_path: str):
     """Return URL string or file handle for local files."""
+    image_path = image_path.strip()
     if is_url(image_path):
         return image_path
-    path = Path(image_path)
+    path = Path(image_path).expanduser()
     if not path.exists():
         raise FileNotFoundError(f"Image not found: {image_path}")
     return open(path, "rb")

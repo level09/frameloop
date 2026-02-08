@@ -16,18 +16,20 @@ def run_prediction(model_config: dict, inputs: dict, output_path: str | None = N
     model_id = model_config["id"]
 
     # Prepare file inputs
-    if "image" in inputs:
+    if "image" in inputs and inputs["image"]:
         inputs["image"] = prepare_image_input(inputs["image"])
-    if "start_image" in inputs:
+    if "start_image" in inputs and inputs["start_image"]:
         inputs["start_image"] = prepare_image_input(inputs["start_image"])
-    if "last_frame" in inputs:
+    if "last_frame" in inputs and inputs["last_frame"]:
         inputs["last_frame"] = prepare_image_input(inputs["last_frame"])
-    if "end_image" in inputs:
+    if "end_image" in inputs and inputs["end_image"]:
         inputs["end_image"] = prepare_image_input(inputs["end_image"])
     if "first_frame_image" in inputs and inputs["first_frame_image"]:
         inputs["first_frame_image"] = prepare_image_input(inputs["first_frame_image"])
     if "subject_reference" in inputs and inputs["subject_reference"]:
         inputs["subject_reference"] = prepare_image_input(inputs["subject_reference"])
+    if "input_reference" in inputs and inputs["input_reference"]:
+        inputs["input_reference"] = prepare_image_input(inputs["input_reference"])
     if "image_input" in inputs and inputs["image_input"]:
         inputs["image_input"] = [prepare_image_input(img) for img in inputs["image_input"]]
     if "input_images" in inputs and inputs["input_images"]:
@@ -38,7 +40,13 @@ def run_prediction(model_config: dict, inputs: dict, output_path: str | None = N
 
     # Create prediction
     start_time = time.time()
-    prediction = replicate.predictions.create(model=model_id, input=inputs)
+    if ":" in model_id:
+        # Versioned model: owner/name:version_hash
+        version = model_id.split(":")[-1]
+        prediction = replicate.predictions.create(version=version, input=inputs)
+    else:
+        # Non-versioned model: owner/name
+        prediction = replicate.predictions.create(model=model_id, input=inputs)
 
     if not wait:
         console.print(f"\n[dim]Prediction ID:[/] {prediction.id}")
@@ -63,6 +71,9 @@ def run_prediction(model_config: dict, inputs: dict, output_path: str | None = N
     output = prediction.output
     if isinstance(output, str):
         output_url = output
+    elif isinstance(output, dict):
+        # Handle models that return dict (e.g., hunyuan3d returns {"mesh": "url"})
+        output_url = output.get("mesh") or output.get("url") or next(iter(output.values()), None)
     elif isinstance(output, list) and output:
         output_url = output[0] if isinstance(output[0], str) else output[0].url
     else:
@@ -80,7 +91,9 @@ def run_prediction(model_config: dict, inputs: dict, output_path: str | None = N
                 ext = "png"
             elif url_path.endswith(".webp"):
                 ext = "webp"
-        ext = ext or inputs.get("output_format") or {"video": "mp4", "upscale": "png", "image": "jpg"}.get(model_config["type"], "png")
+            elif url_path.endswith(".glb"):
+                ext = "glb"
+        ext = ext or inputs.get("output_format") or {"video": "mp4", "upscale": "png", "image": "jpg", "3d": "glb"}.get(model_config["type"], "png")
         input_ref = inputs.get("image") or (inputs.get("image_input") or [None])[0] or (inputs.get("input_images") or [None])[0] or "output"
         output_path = generate_output_filename(input_ref if isinstance(input_ref, str) else "output", model_config["type"], ext)
 
